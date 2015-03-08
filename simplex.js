@@ -209,9 +209,9 @@ function SimplexNoise(stdlib, foreign, heap) {
       l = 0;
       for (i=0; (dim-i)|0; i=(i+1)|0) {
         // permutate
-        q = HEAPI32[(ip + p + (i<<2)) >> 2]|0;
-        if (i) {
-          q = (q + (HEAPI32[(ip + (i<<2)) >> 2]|0))|0;
+        q = HEAPI32[(ip + (i<<2)) >> 2]|0;
+        if (j) {
+          q = (q + (HEAPI32[(ip + p + (i<<2)) >> 2]|0))|0;
         }
         l = HEAPU8[(pp + l + q)|0]|0;
         // substract squared distances
