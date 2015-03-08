@@ -171,13 +171,11 @@ function SimplexNoise(stdlib, foreign, heap) {
                                     - fround(fround(~~j) - t));
       // store cell coordinates
       HEAPI32[(ip + (i<<2)) >> 2] = j;
-    }
 
-    // determine magnitude ordering of coordinates
-    // compare starting from the last vector element
-    // each element with the preceding ones
-    for (i=0; (dim-i-1)|0; i=(i+1)|0) {
-      for (j=(i+1)|0; (dim-j)|0; j=(j+1)|0) {
+      // determine magnitude ordering of coordinates
+      // compare starting from the first vector element
+      // each element with the preceding ones
+      for (j=0; (i-j)|0; j=(j+1)|0) {
         if (fround(HEAPF32[(dp + (i<<2)) >> 2]) > fround(HEAPF32[(dp + (j<<2)) >> 2])) {
           HEAPI32[(rp + (i<<2)) >> 2] = (HEAPI32[(rp + (i<<2)) >> 2]|0) + 1;
         } else {
