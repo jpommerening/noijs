@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title></title>
+</head>
+<body>
+  <canvas id="noise" width="720" height="400"></canvas>
+  <script src="simplex.js"></script>
+  <script>
+
+var noijs = SimplexNoise.create(3);
+
+(function(document, noise) {
+
+  function img(idata, noise, f, t) {
+    for (var y=0; y<idata.height; y++) {
+      var p = idata.width*y*4;
+      for (var x=0; x<idata.width; x++, p+=4) {
+        var v = 0;
+        for (i=1; i<2; i++) {
+          v += noise(x*f*i, y*f*i, t*i/2) * 32;
+        }
+        v += 128;
+        idata.data[p] = v;
+        idata.data[p+1] = v
+        idata.data[p+2] = v;
+        idata.data[p+3] = 255;
+      }
+    }
+  }
+
+  var canvas = document.getElementById('noise');
+  var ctx = canvas.getContext('2d');
+  var idata = ctx.createImageData(canvas.offsetWidth, canvas.offsetHeight);
+  var t = 0;
+
+  function animate() {
+    img(idata, noise, 0.01, t);
+    requestAnimationFrame(function () {
+      ctx.putImageData(idata, 0, 0);
+    });
+    t += 0.1;
+  }
+
+  animate();
+
+  var i;
+  canvas.onclick = function() {
+    if (i) {
+      clearInterval(i);
+      i = null;
+    } else {
+      i = setInterval(animate, 100);
+    }
+  };
+})(document, noijs);
+
+  </script>
+</body>
+</html>
