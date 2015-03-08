@@ -2,7 +2,6 @@ function SimplexNoise(stdlib, foreign, heap) {
   "use asm";
 
   var fround = stdlib.Math.fround;
-  var floor = stdlib.Math.floor;
   var sqrt = stdlib.Math.sqrt;
   var pow = stdlib.Math.pow;
   var imul = stdlib.Math.imul;
@@ -87,7 +86,7 @@ function SimplexNoise(stdlib, foreign, heap) {
     gradinit(dim, gp);
     pp = gp;
 
-    mag = fround(fround(1.) / fround(sqrt(fround(~~(dim-1)))));
+    mag =  fround(1.); // fround(fround(1.) / fround(sqrt(fround(~~(dim-1)))));
 
     while (1) {
       nzero = gradstep(dim, mag, pp, gp)|0;
@@ -118,17 +117,18 @@ function SimplexNoise(stdlib, foreign, heap) {
 
     for (i=dim; i; i=(i-1)|0) {
       sum = fround(fround(HEAPF32[v0p >> 2] * HEAPF32[v1p >> 2]) + sum);
-      v0p = 4 + v0p|0;
-      v1p = 4 + v1p|0;
+      v0p = (v0p + 4)|0;
+      v1p = (v1p + 4)|0;
     }
     return fround(sum);
   }
 
-  function noise(dim, gp, gs, pp, vp, rp, ip, dp) {
+  function noise(dim, gp, gs, pp, ps, vp, rp, ip, dp) {
     dim = dim|0;
     gp  = gp|0; // gradient map
     gs  = gs|0; // gradient map size
     pp  = pp|0; // permutation map
+    ps  = ps|0; // permutation map size
     vp  = vp|0; // position vector
     rp  = rp|0; // ranking vector (16 bytes)
     ip  = ip|0; // index vector (16*dim bytes)
@@ -154,7 +154,7 @@ function SimplexNoise(stdlib, foreign, heap) {
     // compute unskewing factor t
     for (i=0; (dim-i)|0; i=(i+1)|0) {
       // apply skewing transform
-      j = ~~fround(floor(fround(HEAPF32[(vp + (i<<2)) >> 2] + s)));
+      j = ~~fround(fround(HEAPF32[(vp + (i<<2)) >> 2]) + s);
       // store coordinates in int heap
       HEAPI32[(ip + (i<<2)) >> 2] = j;
       // also, initialize ranking vector
@@ -213,7 +213,7 @@ function SimplexNoise(stdlib, foreign, heap) {
         if (i) {
           q = (q + (HEAPI32[(ip + (i<<2)) >> 2]|0))|0;
         }
-        l = HEAPU8[(pp + l + q)&0xff]|0;
+        l = HEAPU8[(pp + l + q)|0]|0;
         // substract squared distances
         n = fround(n - fround(HEAPF32[(dp + p + (i<<2)) >> 2]*HEAPF32[(dp + p + (i<<2)) >> 2]));
       }
@@ -261,14 +261,16 @@ SimplexNoise.perm = new Uint8Array((function () {
 })());
 
 SimplexNoise.create = function(dim) {
-  var pp = 0;
-  var gp = 512;
 
   var buf = new ArrayBuffer(64*1024);
 
   var sx = SimplexNoise(window, {}, buf);
 
+  var pp = 0;
+  var ps = 512;
+  var gp = ps;
   var gs = sx.grad(dim, gp);
+
   var vs = dim*Float32Array.BYTES_PER_ELEMENT;
   var vp = gp + gs*vs;
 
@@ -276,14 +278,14 @@ SimplexNoise.create = function(dim) {
   var ip = rp+vs;
   var dp = ip+vs*(dim+1);
 
-  var perm = new Uint8Array(buf, 0, 512);
+  var perm = new Uint8Array(buf, 0, ps);
   var grad = new Float32Array(buf, gp, gs*dim);
   var vect = new Float32Array(buf, vp, dim);
   var rank = new Int32Array(buf, rp, dim);
   var indx = new Int32Array(buf, ip, dim*(dim+1))
   var dist = new Float32Array(buf, dp, dim*(dim+1));
 
-  for (var i=0; i<512; i++) {
+  for (var i=0; i<ps; i++) {
     perm[i] = SimplexNoise.perm[i];
   }
 
@@ -291,7 +293,7 @@ SimplexNoise.create = function(dim) {
     for (var i=0; i<dim; i++) {
       vect[i] = arguments[i];
     }
-    return sx.noise(dim, gp, gs, pp, vp, rp, ip, dp) * 30;
+    return sx.noise(dim, gp, gs, pp, ps, vp, rp, ip, dp) * 30;
   }
 
   noise.buf  = buf;
