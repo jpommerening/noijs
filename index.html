@@ -5,7 +5,7 @@
   <title></title>
 </head>
 <body>
-  <canvas id="noise" width="720" height="400"></canvas>
+  <canvas id="noise" width="320" height="200"></canvas>
   <script src="simplex.js"></script>
   <script>
 
@@ -13,12 +13,20 @@ var noijs = SimplexNoise.create(3);
 
 (function(document, noise) {
 
+  function scale(v) {
+    return 128 + v * 128;
+  }
+
   function img(idata, noise, f, t) {
     for (var y=0; y<idata.height; y++) {
       var p = idata.width*y*4;
+      var tmp;
       for (var x=0; x<idata.width; x++, p+=4) {
-        var v = noise(x*f, y*f, t) * 32;
-        v += 128;
+        var v = noise(x*f, y*f, t);
+        for (var i=2, j=3; i<=8; tmp = i, i+=j, j=tmp) {
+          v += noise(x*f*i, y*f*i, t)/i;
+        }
+        v = scale(v);
         idata.data[p] = v;
         idata.data[p+1] = v
         idata.data[p+2] = v;
