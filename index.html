@@ -11,45 +11,83 @@
 
 var noijs = SimplexNoise.create(3);
 
-(function(document, noise) {
+function FillImage(stdlib, foreign, heap) {
+  "use asm";
+
+  var noise = foreign.noise;
+  var log = stdlib.Math.log;
+
+  var HEAPU8 = new stdlib.Uint8Array(heap);
 
   function scale(v) {
-    return 128 + v * 128;
+    v = +v;
+    v = +(+log(v) + 4.) * 55.;
+    if (v < 0.) v = 0.;
+    return +v;
   }
 
-  function img(idata, noise, f, t) {
-    for (var y=0; y<idata.height; y++) {
-      var p = idata.width*y*4;
-      var tmp;
-      for (var x=0; x<idata.width; x++, p+=4) {
-        var v = noise(x*f, y*f, t);
-        for (var i=2, j=3; i<=8; tmp = i, i+=j, j=tmp) {
-          v += noise(x*f*i, y*f*i, t)/i;
-        }
-        v = scale(v);
-        idata.data[p] = v;
-        idata.data[p+1] = v
-        idata.data[p+2] = v;
-        idata.data[p+3] = 255;
+  function frame(width, height, f, t) {
+    width = width|0;
+    height = height|0;
+    f = +f;
+    t = +t;
+
+    var p = 0;
+    var tmp = 0;
+    var v = 0.;
+    var x = 0, y = 0;
+    var i = 0, j = 0;
+
+    for (y=0; (height-y)|0; y=(y+1)|0) {
+      for (x=0; (width-x)|0; x=(x+1)|0) {
+        v = +noise((+~~x)*f, (+~~y)*f, t);
+        for (i=2, j=3; ~~i < 8; tmp=i, i=(i+j)|0, j=tmp)
+          v = +(v + +noise((+~~(x*i))*f, (+~~(y*i))*f, t) / +~~i);
+        v = +scale(v);
+
+        tmp = ~~v;
+
+        HEAPU8[p] = tmp|0;
+        HEAPU8[(p+1)|0] = tmp|0;
+        HEAPU8[(p+2)|0] = tmp|0;
+        HEAPU8[(p+3)|0] = 255;
+        p = (p + 4)|0;
       }
     }
   }
+
+  return frame;
+}
+
+(function(document, noise) {
 
   var canvas = document.getElementById('noise');
   var ctx = canvas.getContext('2d');
   var idata = ctx.createImageData(canvas.offsetWidth, canvas.offsetHeight);
   var t = 0;
-  var freq = 0.01;
+  var f = 0.02;
+
+  var width = canvas.offsetWidth;
+  var height = canvas.offsetHeight;
+  var size = width * height * 4;
+
+  // round up to nearest 64k page
+  var bufsize = size + 0x10000 - (size & 0xffff);
+
+  var buffer = new ArrayBuffer(bufsize);
+  var idata = new ImageData(new Uint8ClampedArray(buffer, 0, size), width, height);
+
+  var frame = FillImage(window, { noise: noijs }, buffer);
 
   function animate() {
-    img(idata, noise, freq, t);
+    frame(idata.width, idata.height, f, t);
     requestAnimationFrame(function () {
       ctx.putImageData(idata, 0, 0);
     });
     t += 0.1;
   }
 
-  function coords(x, y, f) {
+  function coords(x, y) {
     var v = noise(x*f, y*f, t);
     var txt = ( '(' + (Math.round(100*x*f)/100) +
                 ', '+ (Math.round(100*y*f)/100) +
@@ -64,7 +102,7 @@ var noijs = SimplexNoise.create(3);
   canvas.onmousemove = function(e) {
     var x = e.clientX - e.target.offsetLeft;
     var y = e.clientY - e.target.offsetTop;
-    coords(x, y, freq);
+    coords(x, y);
     clearInterval(i);
     i = null;
   };
