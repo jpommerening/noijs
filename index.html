@@ -38,11 +38,16 @@ function FillImage(stdlib, foreign, heap) {
     var x = 0, y = 0;
     var i = 0, j = 0;
 
+    var fx = 0., fy = 0.;
+
+
     for (y=0; (height-y)|0; y=(y+1)|0) {
+      fy = (+~~y)*f;
       for (x=0; (width-x)|0; x=(x+1)|0) {
-        v = +noise((+~~x)*f, (+~~y)*f, t);
+        fx = (+~~x)*f;
+        v = +noise(fx, fy, t);
         for (i=2, j=3; ~~i < 8; tmp=i, i=(i+j)|0, j=tmp)
-          v = +(v + +noise((+~~(x*i))*f, (+~~(y*i))*f, t) / +~~i);
+          v = +(v + +noise((+~~i)*fx, (+~~(i))*fy, t) / +~~i);
         v = +scale(v);
 
         tmp = ~~v;

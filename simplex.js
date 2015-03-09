@@ -76,7 +76,7 @@ function SimplexNoise(stdlib, foreign, heap) {
 
   /* Build the gradient for the given number of dimensions.
    */
-  function grad(dim, gp) {
+  function gradgen(dim, gp) {
     dim = dim|0;
     gp  = gp|0;
 
@@ -99,6 +99,12 @@ function SimplexNoise(stdlib, foreign, heap) {
       }
     }
     return num|0;
+  }
+
+  function grad(dim, vp) {
+    dim = dim|0;
+    vp = vp|0;
+    return +1;
   }
 
   /* Scalar (aka. dot-) product of two vectors.
@@ -138,9 +144,11 @@ function SimplexNoise(stdlib, foreign, heap) {
     var s = fround(0.);
     var t = fround(0.);
     var n = fround(0.);
+    var d = fround(0.);
     var v = fround(0.);
     var Fn = fround(0.);
     var Gn = fround(0.);
+    var nGn = fround(0.);
 
     Fn = fround(F(dim));
     Gn = fround(G(dim));
@@ -184,38 +192,31 @@ function SimplexNoise(stdlib, foreign, heap) {
       }
     }
 
-    p = (dim<<2)|0;
-    for (j=1; (dim-j+1)|0; j=(j+1)|0) {
-      for (i=0; (dim-i)|0; i=(i+1)|0) {
-        // compute relative offsets of the other corners
-        // based on ranking
-        if ((HEAPI32[(rp + (i<<2)) >> 2]|0) >= ((dim-j)|0)) {
-          HEAPI32[(ip + p + (i<<2)) >> 2] = 1;
-        } else {
-          HEAPI32[(ip + p + (i<<2)) >> 2] = 0;
-        }
-
-        // compute distance from corners
-        HEAPF32[(dp + p + (i<<2)) >> 2] = ( fround(HEAPF32[(dp + (i<<2)) >> 2]
-                                          - fround(~~HEAPI32[(ip + p + (i<<2)) >> 2]))
-                                          + fround(fround(~~j) * Gn) );
-      }
-      p = (p + (dim<<2))|0;
-    }
-
     p = 0;
     for (j=0; (dim-j+1)|0; j=(j+1)|0) {
       n = fround(0.6);
       l = 0;
       for (i=0; (dim-i)|0; i=(i+1)|0) {
-        // permutate
         q = HEAPI32[(ip + (i<<2)) >> 2]|0;
+        d = fround(HEAPF32[(dp + (i<<2)) >> 2]);
+
         if (j) {
-          q = (q + (HEAPI32[(ip + p + (i<<2)) >> 2]|0))|0;
+          // compute relative offsets of the other corners
+          // based on ranking
+          if ((HEAPI32[(rp + (i<<2)) >> 2]|0) >= ((dim-j)|0)) {
+            q = (q + 1)|0;
+            d = fround(fround(d - fround(1.)) + nGn);
+          } else {
+            q = q;
+            d = fround(d + nGn);
+          }
+
+          HEAPF32[(dp + p + (i<<2)) >> 2] = d;
         }
+
         l = HEAPU8[(pp + l + q)|0]|0;
         // substract squared distances
-        n = fround(n - fround(HEAPF32[(dp + p + (i<<2)) >> 2]*HEAPF32[(dp + p + (i<<2)) >> 2]));
+        n = fround(n - fround(d*d));
       }
       if (n<fround(0.)) {
         n = fround(0.);
@@ -225,6 +226,7 @@ function SimplexNoise(stdlib, foreign, heap) {
         n = fround(n * n); // again
         n = fround(n * fround(dot(dim, (gp + l)|0, (dp + p)|0)));
       }
+      nGn = fround(nGn + Gn);
       p = (p + (dim<<2))|0;
       v = fround(v + n);
     }
@@ -237,6 +239,7 @@ function SimplexNoise(stdlib, foreign, heap) {
     G: G,
     dot: dot,
     grad: grad,
+    gradgen: gradgen,
     noise: noise
   };
 }
@@ -269,20 +272,20 @@ SimplexNoise.create = function(dim) {
   var pp = 0;
   var ps = 512;
   var gp = ps;
-  var gs = sx.grad(dim, gp);
+  var gs = sx.gradgen(dim, gp);
 
   var vs = dim*Float32Array.BYTES_PER_ELEMENT;
   var vp = gp + gs*vs;
 
   var rp = vp+vs;
   var ip = rp+vs;
-  var dp = ip+vs*(dim+1);
+  var dp = ip+vs;
 
   var perm = new Uint8Array(buf, 0, ps);
   var grad = new Float32Array(buf, gp, gs*dim);
   var vect = new Float32Array(buf, vp, dim);
   var rank = new Int32Array(buf, rp, dim);
-  var indx = new Int32Array(buf, ip, dim*(dim+1))
+  var indx = new Int32Array(buf, ip, dim)
   var dist = new Float32Array(buf, dp, dim*(dim+1));
 
   for (var i=0; i<ps; i++) {
