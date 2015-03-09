@@ -11,13 +11,10 @@
 
 var noijs = SimplexNoise.create(3);
 
-function FillImage(stdlib, foreign, heap) {
+function Scale(stdlib) {
   "use asm";
 
-  var noise = foreign.noise;
   var log = stdlib.Math.log;
-
-  var HEAPU8 = new stdlib.Uint8Array(heap);
 
   function scale(v) {
     v = +v;
@@ -25,6 +22,17 @@ function FillImage(stdlib, foreign, heap) {
     if (v < 0.) v = 0.;
     return +v;
   }
+
+  return scale;
+}
+
+function FillImage(stdlib, foreign, heap) {
+  "use asm";
+
+  var noise = foreign.noise;
+  var scale = foreign.scale;
+
+  var HEAPU8 = new stdlib.Uint8Array(heap);
 
   function frame(width, height, f, t) {
     width = width|0;
@@ -39,7 +47,6 @@ function FillImage(stdlib, foreign, heap) {
     var i = 0, j = 0;
 
     var fx = 0., fy = 0.;
-
 
     for (y=0; (height-y)|0; y=(y+1)|0) {
       fy = (+~~y)*f;
@@ -68,28 +75,53 @@ function FillImage(stdlib, foreign, heap) {
 
   var canvas = document.getElementById('noise');
   var ctx = canvas.getContext('2d');
-  var idata = ctx.createImageData(canvas.offsetWidth, canvas.offsetHeight);
   var t = 0;
   var f = 0.02;
+  var run = false;
+  var frames = 0;
+  var fps = 0;
 
   var width = canvas.offsetWidth;
   var height = canvas.offsetHeight;
   var size = width * height * 4;
 
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+
   // round up to nearest 64k page
   var bufsize = size + 0x10000 - (size & 0xffff);
 
-  var buffer = new ArrayBuffer(bufsize);
-  var idata = new ImageData(new Uint8ClampedArray(buffer, 0, size), width, height);
+  try {
+    var buffer = new ArrayBuffer(bufsize);
+    var idata = new ImageData(new Uint8ClampedArray(buffer, 0, size), width, height);
+  }
+  catch(e) {
+    console.log(e);
+    var idata = ctx.createImageData(width, height);
+    var buffer = idata.data.buffer;
+  }
 
-  var frame = FillImage(window, { noise: noijs }, buffer);
+  setInterval(function () {
+    fps = frames;
+    frames = 0;
+  }, 1000);
 
-  function animate() {
-    frame(idata.width, idata.height, f, t);
-    requestAnimationFrame(function () {
-      ctx.putImageData(idata, 0, 0);
-    });
+
+  var scale = Scale(window);
+  var frame = FillImage(window, { noise: noijs, scale: scale }, buffer);
+
+  function update(callback) {
+    frame(width, height, f, t);
+    render(callback);
     t += 0.03;
+  }
+
+  function render(callback) {
+    requestAnimationFrame(function () {
+      frames++;
+      ctx.putImageData(idata, 0, 0);
+      if (run) ctx.fillText('' + fps + ' fps', 2, 10);
+      if (callback) callback();
+    });
   }
 
   function coords(x, y) {
@@ -97,26 +129,34 @@ function FillImage(stdlib, foreign, heap) {
     var txt = ( '(' + (Math.round(100*x*f)/100) +
                 ', '+ (Math.round(100*y*f)/100) +
                 ', '+ (Math.round(100*t)/100) + ') => ' + (Math.round(v*1000)/1000) );
-    ctx.putImageData(idata, 0, 0);
-    ctx.fillText(txt, x, y);
+    render(function () {
+      ctx.fillText(txt, x, y);
+    });
   }
 
-  animate();
+  update();
 
-  var i = null;
+  function animate() {
+    if (run) {
+      update(animate);
+    }
+  }
+
   canvas.onmousemove = function(e) {
     var x = e.clientX - e.target.offsetLeft;
     var y = e.clientY - e.target.offsetTop;
+    run = false;
     coords(x, y);
-    clearInterval(i);
-    i = null;
+  };
+  canvas.onmouseout = function() {
+    render();
   };
   canvas.onclick = function() {
-    if (i !== null) {
-      clearInterval(i);
-      i = null;
+    if (!run) {
+      run = true;
+      animate();
     } else {
-      i = setInterval(animate, 100);
+      run = false;
     }
   };
 })(document, noijs);
