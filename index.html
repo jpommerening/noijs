@@ -153,6 +153,8 @@ function FillImage(stdlib, foreign, heap) {
   };
   canvas.onclick = function() {
     if (!run) {
+      frames = 0;
+      fps = 0;
       run = true;
       animate();
     } else {

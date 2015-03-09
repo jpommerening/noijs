@@ -129,8 +129,10 @@ function SimplexNoise(stdlib, foreign, heap) {
     return fround(sum);
   }
 
-  function noise(dim, gp, gs, pp, ps, vp, rp, ip, dp) {
+  function noise(dim, Fn, Gn, gp, gs, pp, ps, vp, rp, ip, dp) {
     dim = dim|0;
+    Fn  = fround(Fn);
+    Gn  = fround(Gn);
     gp  = gp|0; // gradient map
     gs  = gs|0; // gradient map size
     pp  = pp|0; // permutation map
@@ -146,12 +148,7 @@ function SimplexNoise(stdlib, foreign, heap) {
     var n = fround(0.);
     var d = fround(0.);
     var v = fround(0.);
-    var Fn = fround(0.);
-    var Gn = fround(0.);
     var nGn = fround(0.);
-
-    Fn = fround(F(dim));
-    Gn = fround(G(dim));
 
     // compute skewing factor s
     for (i=0; (dim-i)|0; i=(i+1)|0) {
@@ -198,17 +195,14 @@ function SimplexNoise(stdlib, foreign, heap) {
       l = 0;
       for (i=0; (dim-i)|0; i=(i+1)|0) {
         q = HEAPI32[(ip + (i<<2)) >> 2]|0;
-        d = fround(HEAPF32[(dp + (i<<2)) >> 2]);
+        d = fround(HEAPF32[(dp + (i<<2)) >> 2] + nGn);
 
         if (j) {
           // compute relative offsets of the other corners
           // based on ranking
           if ((HEAPI32[(rp + (i<<2)) >> 2]|0) >= ((dim-j)|0)) {
             q = (q + 1)|0;
-            d = fround(fround(d - fround(1.)) + nGn);
-          } else {
-            q = q;
-            d = fround(d + nGn);
+            d = fround(d - fround(1.));
           }
 
           HEAPF32[(dp + p + (i<<2)) >> 2] = d;
@@ -292,11 +286,14 @@ SimplexNoise.create = function(dim) {
     perm[i] = SimplexNoise.perm[i];
   }
 
+  var Fn = sx.F(dim);
+  var Gn = sx.G(dim);
+
   function noise() {
     for (var i=0; i<dim; i++) {
       vect[i] = arguments[i];
     }
-    return sx.noise(dim, gp, gs, pp, ps, vp, rp, ip, dp) * 30;
+    return sx.noise(dim, Fn, Gn, gp, gs, pp, ps, vp, rp, ip, dp) * 30;
   }
 
   noise.buf  = buf;
