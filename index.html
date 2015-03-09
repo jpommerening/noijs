@@ -49,7 +49,7 @@ function FillImage(stdlib, foreign, heap) {
 
         HEAPU8[p] = tmp|0;
         HEAPU8[(p+1)|0] = tmp|0;
-        HEAPU8[(p+2)|0] = tmp|0;
+        HEAPU8[(p+2)|0] = 128 + tmp>>1;
         HEAPU8[(p+3)|0] = 255;
         p = (p + 4)|0;
       }
@@ -84,7 +84,7 @@ function FillImage(stdlib, foreign, heap) {
     requestAnimationFrame(function () {
       ctx.putImageData(idata, 0, 0);
     });
-    t += 0.1;
+    t += 0.03;
   }
 
   function coords(x, y) {
