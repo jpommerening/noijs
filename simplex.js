@@ -215,7 +215,7 @@ function SimplexNoise(stdlib, foreign, heap) {
       if (n<fround(0.)) {
         n = fround(0.);
       } else {
-        l = imul(~~l % ~~gs, dim) << 2; // convert gradent (mod gradient size) index to byte offset
+        l = (imul(~~l % ~~gs, dim)|0) << 2; // convert gradent (mod gradient size) index to byte offset
         n = fround(n * n); // square
         n = fround(n * n); // again
         n = fround(n * fround(dot(dim, (gp + l)|0, (dp + p)|0)));
